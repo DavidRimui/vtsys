@@ -1,4 +1,4 @@
-import { PrismaClient } from ".prisma/client"
+import { PrismaClient } from "@prisma/client"
 
 // Prisma configuration for high concurrency
 const prismaClientSingleton = () => {
