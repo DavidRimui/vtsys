@@ -6,6 +6,7 @@ import { AuthProvider } from "@/lib/auth-context"
 import { Header } from "@/components/layout/header"
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from "@/components/theme-provider"
+import { VercelAnalytics } from "@/components/analytics"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -28,6 +29,7 @@ export default function RootLayout({
             <Header />
             <main className="min-h-[calc(100vh-4rem)]">{children}</main>
             <Toaster />
+            <VercelAnalytics />
           </AuthProvider>
         </ThemeProvider>
       </body>

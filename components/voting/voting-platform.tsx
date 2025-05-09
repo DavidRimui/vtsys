@@ -51,7 +51,6 @@ export function VotingPlatform() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Vote for Your Candidate</h1>
 
       <div className="bg-muted/50 p-4 rounded-lg mb-8">
         <h2 className="text-lg font-semibold mb-2">How Voting Works</h2>

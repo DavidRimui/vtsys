@@ -32,9 +32,6 @@ export function Header() {
             </Link>
           ) : (
             <>
-              <Link href="/voting" className={`text-sm ${pathname === "/voting" ? "font-bold" : ""}`}>
-                Vote Now
-              </Link>
               <Link href="/admin/login" className={`text-sm ${pathname === "/admin/login" ? "font-bold" : ""}`}>
                 Admin Login
               </Link>
