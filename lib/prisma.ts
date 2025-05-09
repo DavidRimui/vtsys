@@ -1,4 +1,4 @@
-import { PrismaClient } from '.prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 // Use a singleton pattern to avoid multiple Prisma Client instances
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
