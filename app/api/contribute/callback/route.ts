@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
                   name: 'Unknown Candidate',
                   category: 'Unknown',
                   description: 'Candidate created from payment callback',
-                  imageUrl: '/images/default-candidate.jpg',
+                  imageUrl: '/images/Nadia-Mukami.png', // Using an existing image from your public directory
                   votes: 0
                 }
               }
