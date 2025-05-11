@@ -7,7 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 const {
   ONE_KITTY_API_KEY = 'demo_api_key_for_testing',
   ONE_KITTY_API_HOST = 'https://api.onekitty.io',
-  ONE_KITTY_CHANNEL_CODES = ''
+  ONE_KITTY_CHANNEL_CODES = '',
+  ONEKITTY_CALLBACK_URL = 'https://vote-cagap07yn-rimuidavid.vercel.app/api/contribute/callback'
 } = process.env;
 
 // Only validate API key in production to make development/demo easier
@@ -164,7 +165,8 @@ export class PaymentService {
       phone_number: data.phone_number,
       channel_code: data.channel_code,
       auth_code: data.auth_code, // Include auth_code in the payload as required by OneKitty API
-      show_number: data.show_number ?? true
+      show_number: data.show_number ?? true,
+      callback_url: ONEKITTY_CALLBACK_URL // Add the callback URL for payment notifications
     };
     
     // Always include optional fields if present
