@@ -7,7 +7,6 @@ import { Header } from "@/components/layout/header"
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from "@/components/theme-provider"
 import { VercelAnalytics } from "@/components/analytics"
-
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {

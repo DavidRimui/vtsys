@@ -14,7 +14,7 @@
     "analyze": "ANALYZE=true next build",
     "test": "jest",
     "test:ci": "jest --ci --coverage",
-    "prepare": "husky install",
+    "prepare": "node -e \"try{require('.husky/_/husky')}catch(e){process.exit(0)}\" && husky install",
     "deploy:vercel": "vercel --prod",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
+    "@next-auth/prisma-adapter": "^1.0.7",
     "@prisma/client": "latest",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",

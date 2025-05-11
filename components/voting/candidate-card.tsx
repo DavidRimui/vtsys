@@ -91,12 +91,17 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
   
   // Check if we're in test mode
   const isTestMode = () => {
-    // Check both ways the test mode might be configured
-    return process.env.NEXT_PUBLIC_TEST_MODE === 'true' || 
-           window.localStorage.getItem('VOTING_TEST_MODE') === 'true';
-  };
-  
-  // Enable test mode for development (remove in production)
+    // In production, check if test mode enabled via env var
+    if (typeof window !== 'undefined') {
+      return window.localStorage.getItem('VOTING_TEST_MODE') === 'true';
+    }
+    // Always return true in development for easier testing
+    if (process.env.NODE_ENV !== 'production') {
+      return true;
+    }
+    return process.env.NEXT_PUBLIC_TEST_MODE === 'true';
+  }
+
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') {
       window.localStorage.setItem('VOTING_TEST_MODE', 'true');
@@ -118,25 +123,24 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
         return;
       }
       
-      const { data: session } = useSession();
-      if (!session) {
-        toast({
-          title: 'Authentication Required',
-          description: 'You must be logged in to vote.',
-          variant: 'destructive'
-        });
-        setIsSubmitting(false);
-        return;
-      }
-      
       // Validate phone number for mobile money payments before submitting
       if (paymentMethod === 'mpesa' || paymentMethod === 'airtel') {
-        // Basic phone validation
-        const phonePattern = /^(07|\+?254|0)[0-9]{8,9}$/;
+        // Strict phone validation with format for MPESA STK push
+        const phonePattern = /^07\d{8}$/;
+        
+        // Log phone format for debugging
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Phone number format check:', { 
+            phoneNumber, 
+            matches: phonePattern.test(phoneNumber),
+            pattern: phonePattern.toString()
+          });
+        }
+        
         if (!phonePattern.test(phoneNumber)) {
           toast({
-            title: 'Invalid Phone Number',
-            description: 'Please enter a valid Kenyan phone number (e.g. 07XXXXXXXX)',
+            title: 'Invalid Phone Number Format',
+            description: 'Please enter a valid Kenyan phone number in format 07XXXXXXXX',
             variant: 'destructive'
           });
           setIsSubmitting(false);

@@ -110,22 +110,42 @@ export class PaymentService {
    */
   private static validateAndNormalize(raw: unknown): PaymentRequestData {
     const parsed = paymentSchema.parse(raw);
+    
+    // Detailed logging to debug phone formatting issues
+    console.log('Original phone number input:', parsed.phone_number);
+    
     let phone = parsed.phone_number.trim();
-    // Normalize to 2547XXXXXXXX format
+    
+    // Normalize to 2547XXXXXXXX format (required by OneKitty API)
     if (phone.startsWith('07')) {
       phone = `254${phone.slice(1)}`;
+      console.log('Converted 07XXXXXXXX to 2547XXXXXXXX format:', phone);
+    } else if (phone.startsWith('+254')) {
+      phone = phone.substring(1); // Remove the plus sign
+      console.log('Removed + from +254 format:', phone);
+    } else if (!phone.startsWith('254') && phone.match(/^\d{9}$/)) {
+      // If it's just 9 digits (without country code), add 254
+      phone = `254${phone}`;
+      console.log('Added 254 prefix to 9-digit number:', phone);
     }
+    
+    // Remove any non-digit characters
     phone = phone.replace(/\D/g, '');
-    // Strict format: country code + mobile
+    console.log('After removing non-digits:', phone);
+    
+    // Strict format: country code + mobile (must be 12 digits: 254XXXXXXXXX)
     if (!/^2547\d{8}$/.test(phone)) {
+      console.error('Phone validation failed. Expected pattern: 2547XXXXXXXX, Got:', phone);
       throw new ZodError([
         {
           code: 'custom',
-          message: 'Invalid phone number format; expected 2547XXXXXXXX',
+          message: `Invalid phone number format: ${phone}. Required format: 07XXXXXXXX (will be converted to 2547XXXXXXXX)`,
           path: ['phone_number']
         }
       ]);
     }
+    
+    console.log('Final normalized phone number:', phone);
     return { ...parsed, phone_number: phone };
   }
 
@@ -145,6 +165,7 @@ export class PaymentService {
       auth_code: data.auth_code,
       show_number: data.show_number ?? true
     };
+    
     // Always include optional fields if present
     if (data.paymentMethod) payload.payment_method = data.paymentMethod;
     if (data.show_names) {
@@ -160,16 +181,84 @@ export class PaymentService {
     };
 
     console.log('Sending payment payload to OneKitty:', JSON.stringify(payload, null, 2));
-    const response = await axios.post(url, payload, { headers, timeout: 15000 });
-    console.log('Received OneKitty response:', JSON.stringify(response.data, null, 2));
+    console.log('OneKitty API URL:', url);
+    console.log('Headers (without auth token):', { 'Content-Type': headers['Content-Type'], 'Idempotency-Key': headers['Idempotency-Key'] });
+    
+    try {
+      // Detailed Axios configuration with robust error handling
+      const axiosConfig = {
+        method: 'post',
+        url,
+        headers,
+        data: payload,
+        timeout: 30000, // Increased timeout to 30 seconds for reliability
+        maxContentLength: 100000, // Set max content size
+        validateStatus: (status: number) => status >= 200 && status < 500 // Accept all responses to handle errors properly
+      };
+      
+      const response = await axios(axiosConfig);
+      
+      // Log detailed response info
+      console.log('Received OneKitty response:',
+        JSON.stringify({
+          status: response.status,
+          statusText: response.statusText,
+          data: response.data,
+          headers: response.headers
+        }, null, 2)
+      );
+      
+      // If response status is not successful, throw an error with details
+      if (response.status >= 400) {
+        throw new Error(`OneKitty API error (${response.status}): ${JSON.stringify(response.data)}`);
+      }
 
-    const { status, message, data: res } = response.data;
-    return {
-      status,
-      message,
-      transactionId: res?.transaction_id,
-      checkoutUrl: res?.checkout_url
-    };
+      const { status, message, data: res } = response.data;
+      return {
+        status: !!status, // Ensure boolean
+        message: message || 'Payment request processed',
+        transactionId: res?.transaction_id,
+        checkoutUrl: res?.checkout_url
+      };
+    } catch (error: any) {
+      // Detailed error logging for troubleshooting API issues
+      console.error('Error calling OneKitty API:', {
+        message: error.message,
+        isAxiosError: axios.isAxiosError(error),
+        response: error.response ? {
+          status: error.response.status,
+          data: error.response.data
+        } : 'No response',
+        request: error.request ? 'Request was made but no response received' : 'No request',
+        config: error.config ? {
+          url: error.config.url,
+          method: error.config.method,
+          timeout: error.config.timeout,
+          headers: {
+            ...error.config.headers,
+            Authorization: error.config.headers?.Authorization ? '[REDACTED]' : undefined
+          }
+        } : 'No config'
+      });
+      
+      // Handle different error scenarios
+      if (axios.isAxiosError(error) && error.response) {
+        // Server responded with an error status
+        return {
+          status: false,
+          message: `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`,
+        };
+      } else if (axios.isAxiosError(error) && error.request) {
+        // Request made but no response received (network error)
+        return {
+          status: false,
+          message: 'Network error - the payment gateway could not be reached. Please check your connection.',
+        };
+      } else {
+        // Other errors (setup, etc)
+        throw error; // Re-throw to be handled by the caller
+      }
+    }
   }
 
   /**

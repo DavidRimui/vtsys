@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 
 /**
  * Health check endpoint for monitoring
- * Returns basic application health status and uptime
+ * Returns basic application health status, uptime, and payment system diagnostics
  */
 export async function GET() {
   try {
@@ -13,12 +13,23 @@ export async function GET() {
     // Get application uptime
     const uptime = process.uptime();
     
+    // Check payment system configuration
+    const paymentConfig = {
+      oneKittyApiKey: !!process.env.ONE_KITTY_API_KEY,
+      oneKittyApiHost: process.env.ONE_KITTY_API_HOST || 'not configured',
+      oneKittyChannelCodes: !!process.env.ONE_KITTY_CHANNEL_CODES,
+      testMode: process.env.NEXT_PUBLIC_TEST_MODE === 'true',
+      vercelUrl: process.env.VERCEL_URL || process.env.NEXTAUTH_URL || 'not configured',
+      nodeEnv: process.env.NODE_ENV
+    };
+    
     // Basic system information
     const memoryUsage = process.memoryUsage();
     
     return NextResponse.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
+      payment: paymentConfig,
       uptime: formatUptime(uptime),
       environment: process.env.NODE_ENV,
       database: databaseStatus,
