@@ -1,14 +1,18 @@
 import { PrismaClient } from "@prisma/client"
+import { getDatabaseUrl } from "./database-config"
 
 // Prisma configuration for high concurrency
 const prismaClientSingleton = () => {
+  // Get the appropriate database URL based on environment
+  const databaseUrl = getDatabaseUrl();
+  
   return new PrismaClient({
     // Optimize for high-traffic scenarios
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
     // Configure connection pooling for high concurrency
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
+        url: databaseUrl,
       },
     },
     // PrismaClient in latest versions doesn't accept connectionTimeout directly here
