@@ -5,9 +5,12 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { type Candidate, voteForCandidate } from "@/lib/data"
 import { useToast } from "@/components/ui/use-toast"
 import { Check, Minus, Plus } from "lucide-react"
+import { useSession } from "next-auth/react"
+import Head from "next/head"
 
 interface CandidateCardProps {
   candidate: Candidate
@@ -18,7 +21,6 @@ interface CandidateCardProps {
 
 const VOTE_PRICE = 10 // KES per vote
 
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Input } from "@/components/ui/input"
 
@@ -27,7 +29,7 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
   const [hasVoted, setHasVoted] = useState(false)
   const [voteCount, setVoteCount] = useState(1)
   const [showDialog, setShowDialog] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card'>('mpesa')
+  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card' | 'airtel'>('mpesa')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [firstName, setFirstName] = useState('')
   const [secondName, setSecondName] = useState('')
@@ -57,8 +59,17 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
   }, []);
   
   // Simulate successful payment for testing
-  const simulateSuccessfulPayment = (method: 'mpesa' | 'card') => {
+  const simulateSuccessfulPayment = (method: 'mpesa' | 'card' | 'airtel') => {
+    // Set hasVoted to true temporarily
     setHasVoted(true);
+    
+    // Add a 5-second reset timer to allow users to vote multiple times
+    setTimeout(() => {
+      setHasVoted(false);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Vote button reset after test payment - user can vote again');
+      }
+    }, 5000);
     
     if (method === 'mpesa') {
       toast({
@@ -107,8 +118,19 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
         return;
       }
       
-      // Validate phone number for M-Pesa payments before submitting
-      if (paymentMethod === 'mpesa') {
+      const { data: session } = useSession();
+      if (!session) {
+        toast({
+          title: 'Authentication Required',
+          description: 'You must be logged in to vote.',
+          variant: 'destructive'
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Validate phone number for mobile money payments before submitting
+      if (paymentMethod === 'mpesa' || paymentMethod === 'airtel') {
         // Basic phone validation
         const phonePattern = /^(07|\+?254|0)[0-9]{8,9}$/;
         if (!phonePattern.test(phoneNumber)) {
@@ -135,7 +157,7 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
         channel_code: string | number;
         auth_code: string;
         show_number: boolean;
-        paymentMethod: 'mpesa' | 'card';
+        paymentMethod: 'mpesa' | 'card' | 'airtel';
         first_name?: string;
         second_name?: string;
         show_names?: boolean;
@@ -145,7 +167,7 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
       if (process.env.NODE_ENV !== 'production') {
         console.log('Test mode status:', process.env.NEXT_PUBLIC_TEST_MODE);
         console.log('Available env vars:', {
-          CHANNEL_CODE: process.env.NEXT_PUBLIC_ONEKITTY_CHANNEL_CODE,
+          KITTY_ID: process.env.NEXT_PUBLIC_ONEKITTY_ID,
           TEST_MODE: process.env.NEXT_PUBLIC_TEST_MODE
         });
       }
@@ -155,12 +177,21 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
         amount: voteCount * VOTE_PRICE,
         kitty_id: candidate.id,
         phone_number: sanitizedPhoneNumber,
-        channel_code: process.env.NEXT_PUBLIC_ONEKITTY_CHANNEL_CODE || 63902,
+        channel_code: process.env.NEXT_PUBLIC_ONEKITTY_ID ? parseInt(process.env.NEXT_PUBLIC_ONEKITTY_ID) : 63902,
         auth_code: process.env.NEXT_PUBLIC_ONEKITTY_AUTH_CODE || '',
         show_number: true,
-        paymentMethod: paymentMethod as 'mpesa' | 'card'
+        paymentMethod: paymentMethod as 'mpesa' | 'card' | 'airtel'
       };
       
+      // Determine channel code based on payment method
+      if (paymentMethod === 'mpesa') {
+        payload.channel_code = 63902;
+      } else if (paymentMethod === 'airtel') {
+        payload.channel_code = 63903;
+      } else if (paymentMethod === 'card') {
+        payload.channel_code = 55;
+      }
+
       // Only include name fields for card payments
       if (paymentMethod === 'card') {
         payload.first_name = sanitizedFirstName;
@@ -187,20 +218,62 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
           headers['X-CSRF-Token'] = csrfToken;
         }
         
-        // Make the payment request
-        const res = await fetch('/api/contribute', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload)
-        });
+        // Make the payment request using our direct API payment implementation
+        setIsSubmitting(true);
+        let res;
+        try {
+          // Show loading toast
+          toast({
+            title: 'Processing Payment',
+            description: 'Please wait while we process your payment...',
+            duration: 5000
+          });
+          
+          // Use the new direct payment endpoint
+          res = await fetch('/api/payments/direct', {
+            method: 'POST',
+            credentials: 'include',
+            headers,
+            body: JSON.stringify({
+              ...payload,
+              idempotencyKey: `${candidate.id}-${phoneNumber}-${Date.now()}`
+            })
+          });
+        } catch (fetchError) {
+          console.error('Network error when making payment request:', fetchError);
+          toast({
+            variant: 'destructive',
+            title: 'Connection Error',
+            description: 'Network error. Please check your connection and try again.'
+          });
+          throw new Error('Network error. Please check your connection and try again.');
+        }
         
         // Check if the response is OK
         if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(`HTTP error! Status: ${res.status}, Response: ${errorText || 'No response body'}`);
+          let errorData = { message: 'Unknown error' };
+          try {
+            errorData = await res.json();
+          } catch (textError) {
+            console.error('Error parsing error response:', textError);
+            try {
+              const errorText = await res.text();
+              errorData.message = errorText || 'No response body';
+            } catch (e) {
+              console.error('Error reading response text:', e);
+            }
+          }
+          
+          toast({
+            variant: 'destructive',
+            title: 'Payment Error',
+            description: errorData.message || `Error: ${res.status}`
+          });
+          
+          throw new Error(`HTTP error! Status: ${res.status}, Message: ${errorData.message || 'Unknown error'}`);
         }
         
-        // Try to parse the response as JSON
+        // Parse the response as JSON
         let data;
         try {
           data = await res.json();
@@ -210,73 +283,95 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
           }
         } catch (parseError) {
           console.error('Failed to parse response as JSON:', parseError);
+          toast({
+            variant: 'destructive',
+            title: 'System Error',
+            description: 'Invalid response from payment server'
+          });
           throw new Error('Invalid response from payment server');
         }
         
-        // Process successful response
+        // Process successful response from our direct payment API
         if (data && data.status) {
+          // Only temporarily set hasVoted to true - will be reset after 5 seconds
           setHasVoted(true);
           
-          if (paymentMethod === 'mpesa') {
-            // Special handling for M-Pesa
-            toast({ 
-              title: 'M-Pesa Payment Initiated', 
-              description: 'Please check your phone for the M-Pesa payment prompt. If you don\'t receive it within 30 seconds, try again.'
-            });
-            
-            // Only log in development environment
-            if (process.env.NODE_ENV !== 'production') {
-              console.log('M-Pesa payment initiated for phone:', phoneNumber);
-            }
-            
-            // Update candidate votes
-            candidate.votes += voteCount;
-          } else {
-            toast({ title: 'Payment Initiated', description: data.message || 'Payment processing started' });
-          }
+          // Set a timeout to reset the hasVoted state after 5 seconds
+          // This allows the user to vote again for the same candidate
+          setTimeout(() => {
+            setHasVoted(false);
+          }, 5000);
           
-          // If card, redirect to checkout_url
-          if (paymentMethod === 'card' && data.data?.checkout_url) {
-            // Add detailed logging to help debug any redirect issues
-            console.log('Card payment: preparing to redirect to', data.data.checkout_url);
-            
-            // Use secure redirect method
-            if (data.data.checkout_url.startsWith('https://')) {
-              // For added security, add a slight delay before redirecting
-              toast({
-                title: 'Card Payment Initiated',
-                description: 'Redirecting you to the secure payment gateway...'
+          // Update candidate votes locally for immediate UI feedback
+          // The actual DB update happens on the server side
+          candidate.votes += voteCount;
+          
+          // Handle different payment methods with appropriate toast messages
+          if (paymentMethod === 'mpesa') {
+            toast({ 
+              variant: 'default',
+              title: 'M-Pesa Payment Initiated', 
+              description: data.message || 'Please check your phone for the M-Pesa payment prompt. If you don\'t receive it within 30 seconds, try again.'  
+            });
+          } else if (paymentMethod === 'airtel') {
+            toast({ 
+              variant: 'default',
+              title: 'Airtel Money Payment Initiated', 
+              description: data.message || 'Please check your phone for the Airtel Money payment prompt. If you don\'t receive it within 30 seconds, try again.'  
+            });
+          } else if (paymentMethod === 'card') {
+            // For card payments, we might have a checkout URL to redirect to
+            if (data.data?.checkoutUrl) {
+              toast({ 
+                variant: 'default',
+                title: 'Card Payment Ready', 
+                description: 'Redirecting to secure payment page...'  
               });
               
+              // Redirect to the checkout URL for card payment
               setTimeout(() => {
-                window.location.href = data.data.checkout_url;
+                window.location.href = data.data.checkoutUrl;
               }, 1500);
             } else {
-              console.error('Insecure checkout URL detected:', data.data.checkout_url);
-              throw new Error('Insecure payment redirect detected');
+              toast({ 
+                variant: 'default',
+                title: 'Card Payment Initiated', 
+                description: data.message || 'Payment is being processed. You will receive confirmation shortly.'  
+              });
             }
           } else {
-            setShowDialog(false);
+            toast({ 
+              variant: 'default',
+              title: 'Payment Initiated', 
+              description: data.message || 'Your payment is being processed. Please wait for confirmation.'  
+            });
           }
+          
+          // Display transaction ID if available
+          if (data.data?.transactionId) {
+            console.log('Transaction ID:', data.data.transactionId);
+          } 
+          setShowDialog(false);
         } else {
+          // Handle payment failure with detailed error information
           let details = (data && data.message) || 'Payment failed for unknown reason.';
           
-          // Log detailed error information (only in development)
           if (process.env.NODE_ENV !== 'production') {
-            console.error('Payment failed with data:', data || 'No data received');
+            console.error('Payment failed:', data || 'No data received');
           }
           
-          if (data && data.raw) {
-            const rawData = typeof data.raw === 'string' ? data.raw : JSON.stringify(data.raw);
-            details += `\nDetails: ${rawData.substring(0, 100)}${rawData.length > 100 ? '...' : ''}`;
+          // Add transaction code if available
+          if (data && data.code) {
+            details += `\nTransaction Code: ${data.code}`;
           }
           
-          if (data && data.error) {
-            details += `\nError: ${data.error}`;
+          // Add more error context
+          if (data && data.data && data.data.error_message) {
+            details += `\nDetails: ${data.data.error_message}`;
           }
           
-          // Add specific message for M-Pesa failures
-          if (paymentMethod === 'mpesa') {
+          // Add specific message for mobile money failures
+          if (paymentMethod === 'mpesa' || paymentMethod === 'airtel') {
             details += '\n\nPlease check that your phone number is correct and in the format 07xxxxxxxx';
           }
           
@@ -315,7 +410,15 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
       }
 
       if (success) {
+        // Set hasVoted to true temporarily
         setHasVoted(true)
+        
+        // Add a 5-second reset timer to allow users to vote multiple times
+        setTimeout(() => {
+          setHasVoted(false)
+          console.log('Vote button reset - user can vote again')
+        }, 5000)
+        
         toast({
           title: "Votes Recorded",
           description: `You have successfully voted for ${candidate.name} with ${voteCount} vote${voteCount > 1 ? "s" : ""}`,
@@ -369,9 +472,10 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
                 Vote
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent aria-describedby="vote-dialog-desc">
               <DialogHeader>
                 <DialogTitle>Vote for {candidate.name}</DialogTitle>
+                <DialogDescription id="vote-dialog-desc">Select your payment details to support this candidate.</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleDialogVote} className="flex flex-col gap-4">
                 <div className="flex items-center gap-2">
@@ -386,18 +490,23 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
                 </div>
                 <div>
                   <label className="block mb-1 font-medium">Payment Method</label>
-                  <RadioGroup value={paymentMethod} onValueChange={(val: string) => setPaymentMethod(val as 'mpesa' | 'card')} className="flex gap-4">
+                  <RadioGroup value={paymentMethod} onValueChange={(val: string) => setPaymentMethod(val as 'mpesa' | 'card' | 'airtel')} className="flex flex-wrap gap-4">
                     <div className="flex items-center gap-2">
                       <RadioGroupItem value="mpesa" id="mpesa" />
                       <label htmlFor="mpesa">MPESA</label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="airtel" id="airtel" />
+                      <label htmlFor="airtel">Airtel Money</label>
                     </div>
                     <div className="flex items-center gap-2">
                       <RadioGroupItem value="card" id="card" />
                       <label htmlFor="card">Card</label>
                     </div>
                   </RadioGroup>
+                  <p className="text-xs text-muted-foreground mt-1">Payments processed securely via OneKitty</p>
                 </div>
-                {paymentMethod === 'mpesa' && (
+                {(paymentMethod === 'mpesa' || paymentMethod === 'airtel') && (
                   <Input type="tel" placeholder="Phone Number (e.g. 2547xxxxxxx)" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required />
                 )}
                 {paymentMethod === 'card' && (
@@ -442,4 +551,3 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
     </Card>
   )
 }
-

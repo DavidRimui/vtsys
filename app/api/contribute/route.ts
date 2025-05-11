@@ -5,19 +5,28 @@ import logger from '@/lib/logger';
 import { voteRateLimiter } from '@/lib/rate-limit';
 import { getCacheItem, setCacheItem } from '@/lib/cache-utils';
 import { prisma } from '@/lib/db';
+import { PaymentService } from '@/lib/payment-service';
+import axios from 'axios';
 
 // Define validation schema for payment request
 const paymentSchema = z.object({
   amount: z.number().positive().min(1, 'Amount must be greater than 0'),
   kitty_id: z.union([z.string().min(1), z.number().positive()]),
   phone_number: z.string().min(1, 'Phone number is required'),
-  channel_code: z.number().optional(),
-  auth_code: z.string().optional(),
+  channel_code: z.union([
+    z.literal(63902),
+    z.literal(63903),
+    z.literal(55)
+  ], {
+    errorMap: () => ({ message: 'Channel code must be one of: 63902 (MPESA), 63903 (Airtel Money), or 55 (Card)' })
+  }),
+
+  auth_code: z.string().min(1, 'Auth code is required'),
   first_name: z.string().optional(),
   second_name: z.string().optional(),
   show_names: z.boolean().optional(),
   show_number: z.boolean().optional(),
-  paymentMethod: z.enum(['mpesa', 'card'])
+  paymentMethod: z.enum(['mpesa', 'card', 'airtel']).optional()
 });
 
 // Type for the validated payment data
@@ -88,18 +97,29 @@ const handler = async (request: NextRequest) => {
     
     // Validated data
     const validData: PaymentData = validationResult.data;
-    const { 
+    let { 
       amount, 
       kitty_id, 
       phone_number, 
-      channel_code = 63902,
-      auth_code = '',
+      channel_code,
+      auth_code,
       first_name = '',
       second_name = '',
       show_names = false,
       show_number = true,
       paymentMethod 
     } = validData;
+    
+    // Determine payment method from channel code if not explicitly provided
+    if (!paymentMethod) {
+      if (channel_code === 63902) {
+        paymentMethod = 'mpesa';
+      } else if (channel_code === 63903) {
+        paymentMethod = 'airtel';
+      } else if (channel_code === 55) {
+        paymentMethod = 'card';
+      }
+    }
 
     // Convert phone number from 07xxxxxxxx to 2547xxxxxxxx format if needed
     let formattedPhone = phone_number;
@@ -127,9 +147,9 @@ const handler = async (request: NextRequest) => {
       amount,
       kitty_id,
       phone_number: formattedPhone,
-      // Try both variable formats to ensure compatibility with both environments
-      channel_code: process.env.NEXT_PUBLIC_ONEKITTY_CHANNEL_CODE || process.env.ONEKITTY_CHANNEL_CODE || channel_code, 
-      auth_code: process.env.NEXT_PUBLIC_ONEKITTY_AUTH_CODE || process.env.ONEKITTY_AUTH_CODE || auth_code,
+      // Use the provided channel_code instead of environment variables
+      channel_code,
+      auth_code,
       show_number
     };
     
@@ -160,75 +180,72 @@ const handler = async (request: NextRequest) => {
       console.log('Payment payload:', JSON.stringify(payload));
     }
     
-    // Add a timeout to the fetch request
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout
-    
     try {
-      // Add more detailed logging of the API endpoint being used
-      const apiEndpoint = 'https://apisalticon.onekitty.co.ke/kitty/api/contribute/';
-      console.log(`Making payment request to: ${apiEndpoint}`);
+      // Prepare the API request payload for PaymentService
+      const apiPayload: {
+        amount: number;
+        kitty_id: string;
+        phone_number: string;
+        channel_code: number;
+        auth_code: string;
+        show_number: boolean;
+        paymentMethod: 'mpesa' | 'airtel' | 'card';
+        first_name?: string;
+        second_name?: string;
+        show_names?: boolean;
+        return_url?: string;
+      } = {
+        amount: amount,
+        kitty_id: kitty_id.toString(),
+        phone_number: formattedPhone,
+        channel_code: typeof payload.channel_code === 'string' ? parseInt(payload.channel_code) : payload.channel_code,
+        auth_code: payload.auth_code,
+        show_number: show_number,
+        paymentMethod: paymentMethod as 'mpesa' | 'airtel' | 'card'
+      };
       
-      // Make the request to the payment API with more comprehensive headers
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'VotingSystem/1.0',
-          'X-Request-Source': 'voting-system-app'
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
+      // Add name fields if applicable
+      if (show_names) {
+        apiPayload.first_name = payload.first_name;
+        apiPayload.second_name = payload.second_name;
+        apiPayload.show_names = true;
+      }
+      
+      // Include return URL for card payments
+      if (paymentMethod === 'card') {
+        const returnUrl = new URL(request.nextUrl.origin);
+        returnUrl.pathname = '/payment/success';
+        apiPayload.return_url = returnUrl.toString();
+      }
+      
+      logger.info('Processing payment through PaymentService', {
+        amount,
+        kitty_id,
+        paymentMethod,
+        phone_format: formattedPhone.substring(0, 4) + '****' + formattedPhone.substring(formattedPhone.length - 4)
       });
       
-      // Log full response details for debugging
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries([...response.headers.entries()]));
+      // Use the new PaymentService to process the payment directly
+      // This handles API calls, validation, and database storage
+      const result = await PaymentService.processDirectPayment(apiPayload);
       
-      clearTimeout(timeoutId); // Clear the timeout if the request completes successfully
-
-      // Parse the response
-      let data;
-      try {
-        data = await response.json();
-        // Log the response for debugging (remove in production)
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('Payment API response:', JSON.stringify(data));
-        }
-      } catch (parseError) {
-        console.error('Failed to parse API response as JSON:', parseError);
-        return NextResponse.json(
-          { 
-            status: false, 
-            message: 'Invalid response from payment server', 
-            error: 'Response parsing error'
-          },
-          { status: 500 }
-        );
-      }
+      // Log the payment result
+      logger.info('Payment processing result', {
+        status: result.status,
+        message: result.message,
+        hasCheckoutUrl: !!result.data?.checkoutUrl,
+        hasTransactionId: !!result.data?.transactionId
+      });
       
-      // Handle non-OK responses
-      if (!response.ok) {
-        console.error('Payment API error:', data);
-        return NextResponse.json(
-          { status: false, message: data?.message || 'Payment failed', raw: data },
-          { status: response.status }
-        );
-      }
-      
-      // Process successful response
-      if (data && data.status) {
-        // Asynchronously update vote counts without blocking response
-        // This pattern ensures high performance even under heavy load
+      // Asynchronously update vote counts if the payment was initiated successfully
+      if (result.status) {
         try {
-          const candidateId = String(kitty_id); // Convert to string for safety
-          const voteCount = Math.max(1, Math.floor(amount / 10)); // At least 1 vote
-
-          // Fire-and-forget vote increment to optimize response time
+          const candidateId = String(kitty_id);
+          const voteCount = Math.max(1, Math.floor(amount / 10));
+          
+          // Fire-and-forget vote increment
           setTimeout(async () => {
             try {
-              // Direct Prisma call to update vote count
               await prisma.candidate.update({
                 where: { id: candidateId },
                 data: { votes: { increment: voteCount } }
@@ -239,34 +256,45 @@ const handler = async (request: NextRequest) => {
             }
           }, 0);
         } catch (error) {
-          // Just log the error - we don't want to fail the payment
           console.error('Error scheduling vote increment:', error);
         }
-
-        // Create a response object
-        const apiResponse = NextResponse.json({
-          ...data,
-          status: true,
-          message: paymentMethod === 'mpesa' 
-            ? data?.message || 'M-Pesa payment initiated. Please check your phone for the payment prompt.'
-            : data?.message || 'Payment initiated successfully'
-        });
-        
-        // Add CSRF token to the response for security
-        return addCSRFTokenToResponse(apiResponse);
       }
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      console.error('Error making API request:', fetchError);
+      
+      // Return the API response to the client
+      return NextResponse.json({
+        status: result.status,
+        message: result.message,
+        data: result.data,
+      });
+      
+    } catch (error) {
+      // Type the error as AxiosError for better handling
+      const axiosError = error as import('axios').AxiosError;
+      
+      // Always log Axios errors in both production and development
+      console.error('OneKitty API Error:', {
+        message: axiosError.message,
+        status: axiosError.response?.status,
+        data: axiosError.response?.data,
+        config: {
+          url: axiosError.config?.url,
+          method: axiosError.config?.method,
+          timeout: axiosError.config?.timeout
+        }
+      });
+      
+      // Return a properly formatted error response
       return NextResponse.json(
         { 
           status: false, 
-          message: fetchError instanceof Error && fetchError.name === 'AbortError' 
-            ? 'The payment request timed out. Please try again.'
-            : 'Failed to connect to payment server', 
-          error: fetchError?.toString() 
+          message: axiosError.response?.data ? 
+            (typeof axiosError.response.data === 'object' && axiosError.response.data !== null ? 
+              (axiosError.response.data as any).message || 'Payment gateway error' : 
+              'Payment gateway error') : 
+            'Payment gateway error',
+          error: axiosError.message
         },
-        { status: 500 }
+        { status: axiosError.response?.status || 500 }
       );
     }
   } catch (error) {

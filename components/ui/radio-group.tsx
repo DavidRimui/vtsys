@@ -6,8 +6,9 @@ import { Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Updated for React 19 compatibility - using HTMLDivElement instead of ElementRef
 const RadioGroup = React.forwardRef<
-  React.ElementRef<typeof RadioGroupPrimitive.Root>,
+  HTMLDivElement,
   React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Root>
 >(({ className, ...props }, ref) => {
   return (
@@ -20,8 +21,9 @@ const RadioGroup = React.forwardRef<
 })
 RadioGroup.displayName = RadioGroupPrimitive.Root.displayName
 
+// Updated for React 19 compatibility - using HTMLButtonElement instead of ElementRef
 const RadioGroupItem = React.forwardRef<
-  React.ElementRef<typeof RadioGroupPrimitive.Item>,
+  HTMLButtonElement,
   React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Item>
 >(({ className, ...props }, ref) => {
   return (

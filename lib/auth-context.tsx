@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
+import { SessionProvider, useSession } from "next-auth/react"
 
 type Admin = {
   id: string
@@ -23,6 +24,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [admin, setAdmin] = useState<Admin | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  
+  // Wrap with SessionProvider to enable NextAuth throughout the app
 
   // Function to check current authentication status from the server
   const refreshAuth = async () => {
@@ -132,18 +135,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        admin,
-        login,
-        logout,
-        isLoading,
-        refreshAuth,
-        signup
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+    <SessionProvider>
+      <AuthContext.Provider
+        value={{
+          admin,
+          login,
+          logout,
+          isLoading,
+          refreshAuth,
+          signup
+        }}
+      >
+        {children}
+      </AuthContext.Provider>
+    </SessionProvider>
   )
 }
 
