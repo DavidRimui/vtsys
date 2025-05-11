@@ -24,8 +24,8 @@ const nextConfig = {
   // Enable production source maps for better error tracking
   productionBrowserSourceMaps: true,
   
-  // Optimize bundle size
-  swcMinify: true,
+  // SWC minify is enabled by default in Next.js 12+
+  // Removed deprecated swcMinify option
   
   // Configure server compression
   compress: true,
