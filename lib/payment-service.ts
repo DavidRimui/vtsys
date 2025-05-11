@@ -30,7 +30,8 @@ const paymentSchema = z.object({
     (c) => channelCodes.length === 0 || channelCodes.includes(c),
     { message: `Channel code must be one of: ${channelCodes.join(', ')}` }
   ),
-  auth_code: z.string().min(1),
+  // auth_code is required and provided in the request body
+  auth_code: z.string().min(1, 'Auth code is required'),
   first_name: z.string().optional(),
   second_name: z.string().optional(),
   show_names: z.boolean().optional(),
@@ -162,7 +163,7 @@ export class PaymentService {
       kitty_id: data.kitty_id,
       phone_number: data.phone_number,
       channel_code: data.channel_code,
-      auth_code: data.auth_code,
+      auth_code: data.auth_code, // Include auth_code in the payload as required by OneKitty API
       show_number: data.show_number ?? true
     };
     
@@ -176,7 +177,7 @@ export class PaymentService {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${ONE_KITTY_API_KEY}`,
+      Authorization: `Bearer ${data.auth_code}`, // Use the auth_code from the request body
       'Idempotency-Key': idempotencyKey
     };
 

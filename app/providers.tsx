@@ -1,19 +1,15 @@
 "use client"
 
 import React from "react"
-import { SessionProvider } from "next-auth/react"
-import type { Session } from "next-auth"
 
-export function NextAuthProvider({
+// Simplified provider component without authentication
+// You can add other providers here if needed in the future
+export function Providers({
   children,
-  session = null,
 }: {
   children: React.ReactNode
-  session?: Session | null
 }) {
   return (
-    <SessionProvider session={session} refetchInterval={5 * 60}>
-      {children}
-    </SessionProvider>
+    <>{children}</>
   )
 }

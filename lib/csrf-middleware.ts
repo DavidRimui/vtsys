@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateCSRFToken, verifyCSRFToken } from './auth-utils';
+import { generateCSRFToken, verifyCSRFToken } from './csrf-utils';
 
 /**
  * Middleware to check for CSRF token in sensitive requests

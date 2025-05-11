@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateCSRFToken } from '@/lib/auth-utils';
+import { generateCSRFToken } from '@/lib/csrf-utils';
 
 /**
  * API endpoint to generate and provide CSRF tokens to the client

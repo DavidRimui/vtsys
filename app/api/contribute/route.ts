@@ -20,7 +20,6 @@ const paymentSchema = z.object({
   ], {
     errorMap: () => ({ message: 'Channel code must be one of: 63902 (MPESA), 63903 (Airtel Money), or 55 (Card)' })
   }),
-
   auth_code: z.string().min(1, 'Auth code is required'),
   first_name: z.string().optional(),
   second_name: z.string().optional(),
@@ -159,7 +158,7 @@ const handler = async (request: NextRequest) => {
       console.log('Using auth code:', payload.auth_code ? '(Valid auth code present)' : 'MISSING AUTH CODE');
       console.log('Environment variables found:', {
         NEXT_PUBLIC_CHANNEL: !!process.env.NEXT_PUBLIC_ONEKITTY_CHANNEL_CODE,
-        REGULAR_CHANNEL: !!process.env.ONEKITTY_CHANNEL_CODE,
+        REGULAR_CHANNEL: !!process.env.ONEKITTY_CHANNEL_CODE
       });
     }
     
@@ -199,7 +198,7 @@ const handler = async (request: NextRequest) => {
         kitty_id: kitty_id.toString(),
         phone_number: formattedPhone,
         channel_code: typeof payload.channel_code === 'string' ? parseInt(payload.channel_code) : payload.channel_code,
-        auth_code: payload.auth_code,
+        auth_code: payload.auth_code, // Using the auth_code from request body
         show_number: show_number,
         paymentMethod: paymentMethod as 'mpesa' | 'airtel' | 'card'
       };

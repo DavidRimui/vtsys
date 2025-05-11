@@ -1,14 +1,14 @@
 # Voting System Front-End
 
-A Next.js application designed for deployment on Vercel that serves as a voting system with admin functionality.
+A Next.js application designed for deployment on Vercel that serves as a simple voting system with direct payment functionality.
 
 ## Features
 
-- Vote for candidates using M-Pesa or Card payments
+- Vote for candidates using M-Pesa, Airtel Money, or Card payments
+- No sign-in required - direct payment flow
 - Intentionally designed for unlimited voting (no per-user restrictions)
-- Secure admin dashboard with JWT authentication
 - Real-time vote counting and statistics
-- OneKitty payment integration (M-Pesa and Card)
+- OneKitty payment integration (M-Pesa, Airtel Money, and Card)
 - CSRF protection for all form submissions
 - Rate limiting to prevent API abuse
 - Input validation and sanitization
@@ -16,15 +16,13 @@ A Next.js application designed for deployment on Vercel that serves as a voting 
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS with shadcn/ui components
 - **State Management**: React Context API
 - **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: JWT Authentication
 - **Validation**: Zod
-- **Password Hashing**: bcryptjs
-- **Payment Gateway**: OneKitty API
+- **Payment Gateway**: OneKitty API (direct integration via Axios)
 
 ## OneKitty Payment Integration
 

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       channel_codes: process.env.ONE_KITTY_CHANNEL_CODES || 'not set',
       apiHost: process.env.ONE_KITTY_API_HOST || 'not set',
       nodeEnv: process.env.NODE_ENV,
-      baseUrl: process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'not set'
+      baseUrl: process.env.VERCEL_URL || 'not set'
     });
     
     // Add verification for payment test mode

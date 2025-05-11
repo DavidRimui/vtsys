@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { type Candidate, voteForCandidate } from "@/lib/data"
 import { useToast } from "@/components/ui/use-toast"
 import { Check, Minus, Plus } from "lucide-react"
-import { useSession } from "next-auth/react"
 import Head from "next/head"
 
 interface CandidateCardProps {
@@ -159,7 +158,7 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
         kitty_id: string;
         phone_number: string;
         channel_code: string | number;
-        auth_code: string;
+        auth_code: string; // Required auth_code for OneKitty API
         show_number: boolean;
         paymentMethod: 'mpesa' | 'card' | 'airtel';
         first_name?: string;
@@ -182,7 +181,7 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
         kitty_id: candidate.id,
         phone_number: sanitizedPhoneNumber,
         channel_code: process.env.NEXT_PUBLIC_ONEKITTY_ID ? parseInt(process.env.NEXT_PUBLIC_ONEKITTY_ID) : 63902,
-        auth_code: process.env.NEXT_PUBLIC_ONEKITTY_AUTH_CODE || '',
+        auth_code: process.env.NEXT_PUBLIC_ONEKITTY_AUTH_CODE || '', // Include auth_code from environment or form
         show_number: true,
         paymentMethod: paymentMethod as 'mpesa' | 'card' | 'airtel'
       };

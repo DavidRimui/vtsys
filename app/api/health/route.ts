@@ -19,7 +19,7 @@ export async function GET() {
       oneKittyApiHost: process.env.ONE_KITTY_API_HOST || 'not configured',
       oneKittyChannelCodes: !!process.env.ONE_KITTY_CHANNEL_CODES,
       testMode: process.env.NEXT_PUBLIC_TEST_MODE === 'true',
-      vercelUrl: process.env.VERCEL_URL || process.env.NEXTAUTH_URL || 'not configured',
+      vercelUrl: process.env.VERCEL_URL || 'not configured',
       nodeEnv: process.env.NODE_ENV
     };
     

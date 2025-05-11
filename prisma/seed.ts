@@ -1,47 +1,24 @@
 import { PrismaClient } from '@prisma/client';
-import { hashPassword } from '../lib/auth-utils';
 
 const prisma = new PrismaClient();
 
 async function main() {
   try {
-    // Admin credentials
-    const email = 'agamirashadrack7@gmail.com';
-    const password = 'Shazrivas2025!';
+    // Seed candidates if your schema includes a Candidate model
+    // This is simplified since authentication is removed
     
-    // Hash the password for security
-    const hashedPassword = await hashPassword(password);
+    // You can add candidate seeding here if needed. Example:
+    // await prisma.candidate.createMany({
+    //   data: [
+    //     { name: 'Candidate 1', category: 'category1', description: 'Description 1', votes: 0 },
+    //     { name: 'Candidate 2', category: 'category2', description: 'Description 2', votes: 0 },
+    //   ],
+    //   skipDuplicates: true,
+    // });
     
-    // Check if admin already exists
-    const existingAdmin = await prisma.admin.findUnique({
-      where: { email }
-    });
-    
-    if (existingAdmin) {
-      // Update existing admin
-      const updatedAdmin = await prisma.admin.update({
-        where: { email },
-        data: {
-          password: hashedPassword,
-          name: 'Admin User'
-        }
-      });
-      console.log(`Updated admin: ${updatedAdmin.email}`);
-    } else {
-      // Create new admin if doesn't exist
-      const newAdmin = await prisma.admin.create({
-        data: {
-          email,
-          password: hashedPassword,
-          name: 'Admin User'
-        }
-      });
-      console.log(`Created new admin: ${newAdmin.email}`);
-    }
-    
-    console.log('Admin seed completed successfully');
+    console.log('Seed completed successfully');
   } catch (error) {
-    console.error('Error seeding admin:', error);
+    console.error('Error seeding database:', error);
     process.exit(1);
   } finally {
     await prisma.$disconnect();
