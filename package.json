@@ -14,7 +14,6 @@
     "analyze": "ANALYZE=true next build",
     "test": "jest",
     "test:ci": "jest --ci --coverage",
-    "prepare": "node -e \"try{require('.husky/_/husky')}catch(e){process.exit(0)}\" && husky install",
     "deploy:vercel": "vercel --prod",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
