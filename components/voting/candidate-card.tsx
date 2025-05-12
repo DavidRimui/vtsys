@@ -161,7 +161,7 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
       // Define the payment payload interface
       interface PaymentPayload {
         amount: number;
-        kitty_id: string;
+        kitty_id: number;
         phone_number: string;
         channel_code: string | number;
         auth_code: string; // Required auth_code for OneKitty API
