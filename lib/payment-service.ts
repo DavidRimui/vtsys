@@ -179,9 +179,8 @@ export class PaymentService {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${data.auth_code}`, // Use the auth_code from the request body
       'Idempotency-Key': idempotencyKey
-    };
+    }; // Removed Authorization header as per OneKitty docs
 
     console.log('Sending payment payload to OneKitty:', JSON.stringify(payload, null, 2));
     console.log('OneKitty API URL:', url);
