@@ -25,7 +25,7 @@ const channelCodes = ONE_KITTY_CHANNEL_CODES
 // Zod schema for payment data
 const paymentSchema = z.object({
   amount: z.number().positive().min(1),
-  kitty_id: z.string().min(1),
+  kitty_id: z.number().int().positive(),
   phone_number: z.string().min(1),
   channel_code: z.number().refine(
     (c) => channelCodes.length === 0 || channelCodes.includes(c),
@@ -148,8 +148,13 @@ export class PaymentService {
     }
     
     console.log('Final normalized phone number:', phone);
-    return { ...parsed, phone_number: phone };
-  }
+    // Ensure kitty_id is a number (convert if needed)
+    let kitty_id = parsed.kitty_id;
+    if (typeof kitty_id === 'string') {
+      kitty_id = parseInt(kitty_id, 10);
+    }
+    return { ...parsed, phone_number: phone, kitty_id };
+  
 
   /**
    * Calls OneKitty with idempotency header and logs response
