@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
   // Dynamically determine callback URL based on current request
   const protocol = request.headers.get('x-forwarded-proto') || 'https';
   const host = request.headers.get('host');
-  const callback_url = `${protocol}://${host}/api/contribute/callback`;
+  const callback_url = `${protocol}://${host}/voting/api/contribute/callback`;
 
   // Prepare OneKitty payload
   const paymentData = {
