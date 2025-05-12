@@ -30,12 +30,13 @@ export async function POST(request: NextRequest) {
 
   // Validate
   let payload: VoteRequest;
+  // Safely cast to any for pre-validation manipulation
+  const temp = data as any;
   try {
-    // Ensure kitty_id is a number if passed as a string
-    if (typeof data.kitty_id === 'string') {
-      data.kitty_id = parseInt(data.kitty_id, 10);
+    if (typeof temp.kitty_id === 'string') {
+      temp.kitty_id = parseInt(temp.kitty_id, 10);
     }
-    payload = voteSchema.parse(data);
+    payload = voteSchema.parse(temp);
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ status: false, message: 'Validation error', errors: err.format() }, { status: 400 });
