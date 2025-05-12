@@ -42,6 +42,11 @@ export async function POST(request: NextRequest) {
   // Calculate amount at KES 10 per vote
   const amount = payload.votes * 10;
 
+  // Dynamically determine callback URL based on current request
+  const protocol = request.headers.get('x-forwarded-proto') || 'https';
+  const host = request.headers.get('host');
+  const callback_url = `${protocol}://${host}/api/contribute/callback`;
+
   // Prepare OneKitty payload
   const paymentData = {
     amount,
@@ -52,7 +57,8 @@ export async function POST(request: NextRequest) {
     first_name: payload.first_name,
     second_name: payload.second_name,
     show_names: payload.show_names ?? true,
-    show_number: payload.show_number ?? true
+    show_number: payload.show_number ?? true,
+    callback_url // Pass dynamically generated callback URL
   };
 
   // Process payment
