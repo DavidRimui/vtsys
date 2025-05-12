@@ -154,7 +154,8 @@ export class PaymentService {
       kitty_id = parseInt(kitty_id, 10);
     }
     return { ...parsed, phone_number: phone, kitty_id };
-  
+  }
+
 
   /**
    * Calls OneKitty with idempotency header and logs response
