@@ -2,6 +2,12 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
+
+// NOTE: If you see 'AbortError: The play() request was interrupted by a call to pause()',
+// there is no direct play/pause media logic in this file. The error may be caused by a third-party
+// component, browser extension, or dynamic media element elsewhere in the app. If you add audio/video
+// playback in the future, debounce play/pause calls and handle AbortError gracefully.
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -178,7 +184,7 @@ export function CandidateCard({ candidate, showVotes = false, onVote, categoryNa
       // Prepare payment payload with proper typing
       const payload: PaymentPayload = {
         amount: voteCount * VOTE_PRICE,
-        kitty_id: candidate.id,
+        kitty_id: Number(candidate.id),
         phone_number: sanitizedPhoneNumber,
         channel_code: process.env.NEXT_PUBLIC_ONEKITTY_ID ? parseInt(process.env.NEXT_PUBLIC_ONEKITTY_ID) : 63902,
         auth_code: process.env.NEXT_PUBLIC_ONEKITTY_AUTH_CODE || '', // Include auth_code from environment or form
