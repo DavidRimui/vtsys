@@ -4,6 +4,8 @@ import { generateCSRFToken } from '@/lib/csrf-utils';
 /**
  * API endpoint to generate and provide CSRF tokens to the client
  * This is used to protect against Cross-Site Request Forgery attacks
+ * 
+ * Note: Using direct implementation to avoid env loading issues
  */
 export async function GET(request: NextRequest) {
   try {

@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 // Environment variables for OneKitty
 const {
   ONE_KITTY_API_KEY = 'demo_api_key_for_testing',
-  ONE_KITTY_API_HOST = 'https://api.onekitty.io',
+  ONE_KITTY_API_HOST = 'https://apisalticon.onekitty.co.ke',
   ONE_KITTY_CHANNEL_CODES = '',
   ONEKITTY_CALLBACK_URL = 'https://vote-cagap07yn-rimuidavid.vercel.app/api/contribute/callback'
 } = process.env;
@@ -276,36 +276,49 @@ export class PaymentService {
     checkoutUrl: string | null
   ) {
     try {
-      // Using a type assertion to handle potential model name differences
-      // This ensures compatibility with different Prisma versions and configurations
-      const prismaClient = prisma as any;
-      
-      await prismaClient.paymentRequest.upsert({
-        where: { id: idempotencyKey },
-        create: {
-          id: idempotencyKey,
-          amount: data.amount,
-          candidateId: data.kitty_id,
-          channelCode: data.channel_code,
-          phoneNumber: data.phone_number,
-          paymentMethod: data.paymentMethod || 'mpesa',
-          firstName: data.first_name || null,
-          secondName: data.second_name || null,
-          showNames: data.show_names || false,
-          showNumber: data.show_number ?? true,
+      // Only attempt database operations if not in production or if DATABASE_URL is properly configured
+      // This prevents errors in environments like Vercel preview deployments where database might not be available
+      if (process.env.NODE_ENV !== 'production' || (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost'))) {
+        // Using a type assertion to handle potential model name differences
+        // This ensures compatibility with different Prisma versions and configurations
+        const prismaClient = prisma as any;
+        
+        await prismaClient.paymentRequest.upsert({
+          where: { id: idempotencyKey },
+          create: {
+            id: idempotencyKey,
+            amount: data.amount,
+            candidateId: data.kitty_id,
+            channelCode: data.channel_code,
+            phoneNumber: data.phone_number,
+            paymentMethod: data.paymentMethod || 'mpesa',
+            firstName: data.first_name || null,
+            secondName: data.second_name || null,
+            showNames: data.show_names || false,
+            showNumber: data.show_number ?? true,
+            status,
+            responseMessage: message,
+            transactionId,
+            checkoutUrl
+          },
+          update: {
+            status,
+            responseMessage: message,
+            transactionId,
+            checkoutUrl,
+            updatedAt: new Date()
+          }
+        });
+      } else {
+        // In production without a proper database, log the payment data but don't try to persist it
+        console.log(`[PRODUCTION FALLBACK] ${new Date().toISOString()} - ${idempotencyKey}`, {
+          data,
           status,
-          responseMessage: message,
+          message,
           transactionId,
           checkoutUrl
-        },
-        update: {
-          status,
-          responseMessage: message,
-          transactionId,
-          checkoutUrl,
-          updatedAt: new Date()
-        }
-      });
+        });
+      }
     } catch (err) {
       console.error('DB persistence error:', err);
       console.log(`[FALLBACK] ${new Date().toISOString()} - ${idempotencyKey}`, {
