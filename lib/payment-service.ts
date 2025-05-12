@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 // Environment variables for OneKitty
 const {
   ONE_KITTY_API_KEY = 'demo_api_key_for_testing',
-  ONE_KITTY_API_HOST = 'https://apisalticon.onekitty.co.ke',
+  ONE_KITTY_API_HOST = 'https://apisalticon.onekitty.co.ke/kitty/api', // Updated default host to match docs
   ONE_KITTY_CHANNEL_CODES = '',
   ONEKITTY_CALLBACK_URL = 'https://vote-cagap07yn-rimuidavid.vercel.app/api/contribute/callback'
 } = process.env;
@@ -158,7 +158,7 @@ export class PaymentService {
     data: PaymentRequestData,
     idempotencyKey: string
   ): Promise<{ status: boolean; message: string; transactionId?: string; checkoutUrl?: string }> {
-    const url = `${ONE_KITTY_API_HOST}/v1/payments/contribute/`;
+    const url = `${ONE_KITTY_API_HOST}/contribute/`; // Updated to match OneKitty docs
     const payload: Record<string, any> = {
       amount: data.amount,
       kitty_id: data.kitty_id,
