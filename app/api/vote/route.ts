@@ -4,7 +4,7 @@ import { PaymentService } from '@/lib/payment-service';
 
 // Schema for incoming vote request
 const voteSchema = z.object({
-  kitty_id: z.string().min(1),
+  kitty_id: z.number().int().positive(),
   votes: z.number().int().positive(),
   phone_number: z.string().min(1),
   channel_code: z.number().refine(c => [63902, 63903, 55].includes(c), {
@@ -31,6 +31,10 @@ export async function POST(request: NextRequest) {
   // Validate
   let payload: VoteRequest;
   try {
+    // Ensure kitty_id is a number if passed as a string
+    if (typeof data.kitty_id === 'string') {
+      data.kitty_id = parseInt(data.kitty_id, 10);
+    }
     payload = voteSchema.parse(data);
   } catch (err) {
     if (err instanceof ZodError) {
